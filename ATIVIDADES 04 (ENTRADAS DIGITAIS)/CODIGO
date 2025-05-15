@@ -1,0 +1,49 @@
+#define LED0 17
+#define LED1 3
+#define LED2 11
+#define LED3 14
+
+#define BOTAO_INCREMENTO (36)
+#define BOTAO_MODIFICADOR (35)
+
+uint8_t valor_contador = 0;
+uint8_t passo = 1;
+
+int estado_ant_inc = 0;
+int estado_ant_mod = 0;
+
+void exibir_binario(uint8_t numero) {
+  digitalWrite(LED0, numero & 0x01);
+  digitalWrite(LED1, (numero >> 1) & 0x01);
+  digitalWrite(LED2, (numero >> 2) & 0x01);
+  digitalWrite(LED3, (numero >> 3) & 0x01);
+}
+
+void setup() {
+  // Configura LEDs como saída
+  pinMode(LED0, OUTPUT);
+  pinMode(LED1, OUTPUT);
+  pinMode(LED2, OUTPUT);
+  pinMode(LED3, OUTPUT);
+
+  // Configura botões como entrada
+  pinMode(BOTAO_INCREMENTO, INPUT);
+  pinMode(BOTAO_MODIFICADOR, INPUT);
+}
+
+void loop() {
+  int estado_inc = digitalRead(BOTAO_INCREMENTO);
+  if (estado_inc == HIGH && estado_ant_inc == LOW) {
+    valor_contador = (valor_contador + passo) % 16;
+    exibir_binario(valor_contador);
+  }
+  estado_ant_inc = estado_inc;
+
+  int estado_mod = digitalRead(BOTAO_MODIFICADOR);
+  if (estado_mod == HIGH && estado_ant_mod == LOW) {
+    passo = (passo == 1) ? 2 : 1;
+  }
+  estado_ant_mod = estado_mod;
+
+  delay(50); // debounce
+}
