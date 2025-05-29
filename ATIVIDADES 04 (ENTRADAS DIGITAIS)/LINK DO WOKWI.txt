@@ -1,1 +1,0 @@
-https://wokwi.com/projects/new/esp-idf-esp32-s3
