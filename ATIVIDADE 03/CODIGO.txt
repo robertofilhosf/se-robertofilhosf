@@ -1,0 +1,65 @@
+#include <stdio.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "driver/gpio.h"
+
+// Definições dos pinos dos LEDs
+#define LED1_GPIO GPIO_NUM_2
+#define LED2_GPIO GPIO_NUM_4
+
+// Estrutura para os parâmetros de cada LED
+typedef struct {
+    gpio_num_t gpio_num;
+    uint32_t delay_ms;
+} led_params_t;
+
+// Função de configuração dos GPIOs
+void configure_led(gpio_num_t gpio_num) {
+    gpio_config_t io_conf = {
+        .pin_bit_mask = (1ULL << gpio_num),
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = 0,
+        .pull_down_en = 0,
+        .intr_type = GPIO_INTR_DISABLE
+    };
+    gpio_config(&io_conf);
+}
+
+// Task genérica para piscar LED
+void led_blink_task(void *pvParameter) {
+    led_params_t *params = (led_params_t *) pvParameter;
+
+    while (1) {
+        gpio_set_level(params->gpio_num, 1);
+        vTaskDelay(pdMS_TO_TICKS(params->delay_ms /2 ));
+        gpio_set_level(params->gpio_num, 0);
+        vTaskDelay(pdMS_TO_TICKS(params->delay_ms /2 ));
+      
+    }
+}
+
+void led_blink_task2(void *pvParameter) {
+    led_params_t *params = (led_params_t *) pvParameter;
+
+    while (1) {
+        
+        gpio_set_level(params->gpio_num, 1);
+        vTaskDelay(pdMS_TO_TICKS(params->delay_ms /2 ));
+        gpio_set_level(params->gpio_num, 0);
+        vTaskDelay(pdMS_TO_TICKS(params->delay_ms /2 ));
+    }
+}
+
+void app_main(void) {
+    // Configura os GPIOs
+    configure_led(LED1_GPIO);
+    configure_led(LED2_GPIO);
+
+    // Define os parâmetros de cada LED
+    static led_params_t led1 = { .gpio_num = LED1_GPIO, .delay_ms = 1000 };
+    static led_params_t led2 = { .gpio_num = LED2_GPIO, .delay_ms = 200 };
+
+    // Cria as tasks para controlar os LEDs
+    xTaskCreate(led_blink_task, "LED1 Task", 2048, &led1, 5, NULL);
+    xTaskCreate(led_blink_task2, "LED2 Task", 2048, &led2, 5, NULL);
+}
