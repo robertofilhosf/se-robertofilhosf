@@ -1,0 +1,96 @@
+#include <stdio.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "driver/gpio.h"
+#include "esp_timer.h"
+#include "esp_log.h"
+
+// === Definição dos pinos dos LEDs ===
+#define LED0 17
+#define LED1 3
+#define LED2 11
+#define LED3 14
+
+// === Definição dos botões ===
+#define BOTAO_INCREMENTO 36
+#define BOTAO_MODIFICADOR 35
+
+// === Constantes ===
+#define DEBOUNCE_DELAY_US 200000  // 200 ms
+
+// === Variáveis globais ===
+static const char *TAG = "INTERRUPCAO_BTN";
+volatile uint8_t valor_contador = 0;
+volatile uint8_t passo = 1;
+volatile int64_t ultimo_inc = 0;
+volatile int64_t ultimo_mod = 0;
+
+// === Função: Atualiza LEDs com valor binário ===
+void exibir_binario(uint8_t numero) {
+    gpio_set_level(LED0, numero & 0x01);
+    gpio_set_level(LED1, (numero >> 1) & 0x01);
+    gpio_set_level(LED2, (numero >> 2) & 0x01);
+    gpio_set_level(LED3, (numero >> 3) & 0x01);
+}
+
+// === ISR para os botões ===
+static void IRAM_ATTR isr_botao(void* arg) {
+    int gpio = (int)(intptr_t)arg;
+    int64_t agora = esp_timer_get_time();
+
+    if (gpio == BOTAO_INCREMENTO && (agora - ultimo_inc > DEBOUNCE_DELAY_US)) {
+        ultimo_inc = agora;
+        valor_contador = (valor_contador + passo) % 16;
+        exibir_binario(valor_contador);
+    } else if (gpio == BOTAO_MODIFICADOR && (agora - ultimo_mod > DEBOUNCE_DELAY_US)) {
+        ultimo_mod = agora;
+        passo = (passo == 1) ? 2 : 1;
+    }
+}
+
+// === Configura LEDs como saída ===
+void init_leds(void) {
+    gpio_config_t conf = {
+        .mode = GPIO_MODE_OUTPUT,
+        .pin_bit_mask = (1ULL << LED0) | (1ULL << LED1) | (1ULL << LED2) | (1ULL << LED3),
+        .pull_down_en = 0,
+        .pull_up_en = 0,
+        .intr_type = GPIO_INTR_DISABLE
+    };
+    gpio_config(&conf);
+    exibir_binario(valor_contador); // Inicializa LEDs com valor 0
+}
+
+// === Configura botões como entrada com interrupção ===
+void init_botoes(void) {
+    gpio_config_t conf = {
+        .mode = GPIO_MODE_INPUT,
+        .pin_bit_mask = (1ULL << BOTAO_INCREMENTO) | (1ULL << BOTAO_MODIFICADOR),
+        .pull_down_en = 0,
+        .pull_up_en = 0,
+        .intr_type = GPIO_INTR_NEGEDGE
+    };
+    gpio_config(&conf);
+}
+
+// === Inicializa interrupções ===
+void init_interrupcoes(void) {
+    gpio_install_isr_service(0);  // Sem flags
+    gpio_isr_handler_add(BOTAO_INCREMENTO, isr_botao, (void*)(intptr_t)BOTAO_INCREMENTO);
+    gpio_isr_handler_add(BOTAO_MODIFICADOR, isr_botao, (void*)(intptr_t)BOTAO_MODIFICADOR);
+}
+
+// === Função principal ===
+void app_main(void) {
+    ESP_LOGI(TAG, "Inicializando sistema...");
+
+    init_leds();
+    init_botoes();
+    init_interrupcoes();
+
+    ESP_LOGI(TAG, "Sistema pronto!");
+
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(100));  // Loop ocioso
+    }
+}
